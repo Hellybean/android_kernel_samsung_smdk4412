@@ -1,0 +1,257 @@
+#!/sbin/busybox sh
+
+BB=/sbin/busybox
+TOOLBOX=/system/bin/toolbox
+
+SYSTEM=/dev/block/mmcblk0p13
+SYSTEM2=/.secondrom/media/.secondrom/system.img
+DATABLOCK=/dev/block/mmcblk0p17
+DATA2=/.secondrom/media/.secondrom/data
+CACHE=/dev/block/mmcblk0p12
+CACHE2=/dev/block/mmcblk0p14
+CARRIER=/dev/block/mmcblk0p16
+
+cd /
+
+$BB date >>boot.txt
+exec >>boot.txt 2>&1
+
+$BB echo "generating mount directories..."
+$BB mkdir proc
+$BB mkdir sys
+$BB mkdir system
+
+$BB mkdir /dev
+$BB mkdir /dev/block
+
+$BB mkdir /mnt
+$BB chmod 755 /mnt
+$BB mkdir -p $DATA2
+$BB chmod 0771 $DATA2
+$BB chown system:system $DATA2
+
+$BB mkdir /data
+$BB chmod 0771 /data
+$BB chown system:system /data
+
+$BB mkdir /cache
+$BB chmod 0770 /cache
+$BB chown system:cache /cache
+
+$BB mkdir /carrier
+$BB chmod 0771 /carrier
+$BB chown system:radio /carrier
+
+$BB mkdir /dev/input
+
+$BB echo "generating device nodes..."
+
+$BB mknod /dev/block/mmcblk0 b 179 0
+$BB mknod $CACHE b 179 12 	# cache1
+$BB mknod $CACHE2 b 179 14 	# cache2
+$BB mknod $SYSTEM b 179 13 	# system
+$BB mknod $CARRIER b 259 0	# carrier for sprint
+$BB mknod $DATABLOCK b 259 1	# data and .secondrom for sprint
+$BB mknod /dev/block/loop0 b 7 0
+
+$BB echo "mounting devices..."
+$BB mount -t proc proc /proc
+$BB mount -t sysfs sysfs /sys
+$BB mount -o rw,remount rootfs
+$BB mount -o rw,remount /
+
+$BB echo "trying to mount carrier as ext4:"
+$BB mount -t ext4 -o noatime,nodiratime,data=writeback,barrier=0,discard,nosuid,nodev,noauto_da_alloc,journal_async_commit,errors=panic $CARRIER /carrier
+
+$BB echo "trying to mount .secondrom as ext4:"
+$BB mount -t ext4 -o noatime,nodiratime,data=writeback,barrier=0,discard,nosuid,nodev,noauto_da_alloc,journal_async_commit,errors=panic $DATABLOCK /.secondrom
+$BB echo "trying to mount .secondrom as f2fs"
+$BB mount -t f2fs -o noatime,nodiratime,discard,nosuid,nodev $DATABLOCK /.secondrom
+
+SECONDARYBOOT=0
+if $BB [ -f /.secondrom/.secondaryboot ] && $BB [ -f $SYSTEM2 ] ; then
+SECONDARYBOOT=`$BB cat /.secondrom/.secondaryboot`
+fi
+
+if $BB [ "$SECONDARYBOOT" == 1 ]; then
+  $BB mount -t ext4 $SYSTEM2 /system
+  $BB mount -t f2fs $SYSTEM2 /system
+  $BB mount -o rw,remount,suid,dev /system
+else
+   $BB mount -t ext4 -o rw,noatime,nodiratime,data=writeback,barrier=0,discard $SYSTEM /system
+   $BB mount -t f2fs -o rw,noatime,nodiratime,discard $SYSTEM /system
+fi
+
+$BB mkdir -p /system/etc/init.d
+
+#move .secondrom folder back to the original location if android moved it to a subfolder
+if $BB [ -d /.secondrom/media/0/.secondrom ];then
+  if $BB [ ! -d /.secondrom/media/.secondrom ];then
+    $BB mkdir /.secondrom/media/.secondrom
+    $BB mv -f /.secondrom/media/0/.secondrom/* /.secondrom/media/.secondrom
+    $BB rmdir /.secondrom/media/0/.secondrom
+  fi
+fi
+
+######### workaround for non working default.prop ###########
+setproperties() {
+$TOOLBOX setprop ro.adb.secure 0
+$TOOLBOX setprop ro.secure 0
+$TOOLBOX setprop ro.allow.mock.location 0
+$TOOLBOX setprop ro.debuggable 1
+$TOOLBOX setprop persist.sys.usb.config mtp,adb
+}
+
+copy_libs () {
+$BB cp -r -f /misc/libs/* /system/
+$BB chown root:root /system/lib/egl/libEGL_mali.so
+$BB chown root:root /system/lib/egl/libGLESv1_CM_mali.so
+$BB chown root:root /system/lib/egl/libGLESv2_mali.so
+$BB chmod 644 /system/lib/egl/libEGL_mali.so
+$BB chmod 644 /system/lib/egl/libGLESv1_CM_mali.so
+$BB chmod 644 /system/lib/egl/libGLESv2_mali.so
+$BB chown root:root /system/lib/libMali.so
+$BB chown root:root /system/lib/libUMP.so
+$BB chmod 644 /system/lib/libMali.so
+$BB chmod 644 /system/lib/libUMP.so
+$BB chmod 644 /system/lib/hw/sensors.smdk4x12.so
+$BB chown root:root /system/lib/hw/sensors.smdk4x12.so
+}
+
+
+######### copy initramfs ###############################################
+rom() {
+echo "using $1 initramfs"
+copy_libs
+
+   if $BB grep -q 1 /sys/class/power_supply/battery/batt_lp_charging ; then
+  	# low power mode
+	$BB mv -f /roms/sammy43/* /
+ 	echo 0 > /proc/sys/kernel/rom_feature_set
+	SECONDARYBOOT=0
+ 	$BB cp -f lpm.rc init.rc
+  	$BB rm -f init.smdk4x12.rc
+   else
+	$BB mv -f /roms/$1/* /
+	INSTALLED_VER=nothing
+	KV=`$BB uname -r`
+	echo "kernelversion: $KV"
+	if $BB [ -f /.secondrom/media/.devil ] ; then
+	   INSTALLED_VER=$($BB cat /.secondrom/media/.devil)
+	fi
+	echo previous version: $INSTALLED_VER
+
+	if [ "$1" == "sammy43" ] || [ "$1" == "sammy44" ] ; then
+	    #if $BB grep -q f2fs /proc/mounts ; then #selinux disabled by default
+   	    	echo 2 > /proc/sys/kernel/rom_feature_set
+		echo "disabled selinux"
+	    #else
+   	    #	echo 4 > /proc/sys/kernel/rom_feature_set
+	    #fi
+	    $BB mv -f /misc/sbin2/* /sbin/
+	    $BB mv -f /misc/system/bin/* /system/bin/
+	    $BB chmod a+x /system/bin/sysinit
+	else
+	    if $BB [ -f /.secondrom/.selinux_disable ] ; then
+   	    	echo 5 > /proc/sys/kernel/rom_feature_set
+		echo "disabled selinux"
+	    else
+   	    	echo 7 > /proc/sys/kernel/rom_feature_set
+	    fi
+
+	    $BB mkdir -p /system/lib/modules
+	    if $BB [ "`$BB grep $KV /system/lib/modules/dhd.ko`" ] && $BB [ "$KV" = "$INSTALLED_VER" ]; then
+		echo "kernel files already installed, nothing to do"
+	     else
+		echo "updating modules..."
+		$BB rm -rf system/lib/modules/*
+		$BB mv /lib/modules/* /system/lib/modules/
+	    fi
+	fi
+
+	if [ "$SECONDARYBOOT" == "1" ];then
+	    echo "secondary boot"
+  	    $BB mv /init.mount.rc2 /init.mount.rc
+  	    $BB mv /fstab.smdk4x12.2 /fstab.smdk4x12
+
+	    rm -rf /system/etc/init.d/10sd_mount
+	    $BB echo "#!/system/bin/sh" > /system/etc/init.d/10sd_mount
+	    $BB echo "/system/bin/sdcard /.secondrom/media /mnt/shell/emulated 1023 1023 &" >> /system/etc/init.d/10sd_mount
+	    $BB chmod a+x /system/etc/init.d/10sd_mount
+	fi
+   fi
+}
+
+if $BB grep -q ro.build.version.release=4.4 /system/build.prop; then
+   if $BB [ -f /system/framework/smartfaceservice.jar ]; then
+	rom sammy44
+
+   elif $BB grep -q cyanogenmod /system/build.prop ||
+      $BB grep -q ro.cm.version /system/build.prop; then
+	echo "rom seems to be cm based"
+   	rom cm11
+   else
+	echo "rom does not seem to be based off cm"	
+   	rom omni
+   fi
+elif $BB [ -f /system/framework/smartfaceservice.jar ]; then
+   rom sammy43
+else
+   rom cm102
+fi
+
+if $BB [ -f /system/etc/init.d/15sensors ]; then
+$BB rm -rf /system/etc/init.d/15sensors
+fi
+
+$BB echo "#!/system/bin/sh" > /system/etc/init.d/15devil
+#$BB echo "echo 0 > /sys/class/sensors/proximity_sensor/prox_cal" >> /system/etc/init.d/15devil
+#$BB echo "echo 1 > /sys/class/sensors/proximity_sensor/prox_cal" >> /system/etc/init.d/15devil
+$BB echo "# usb connection workaround, needed because of broken default.prop execution" >> /system/etc/init.d/15devil
+$BB echo "/system/bin/setprop persist.sys.usb.config mtp,adb" >> /system/etc/init.d/15devil
+$BB chmod a+x /system/etc/init.d/15devil
+
+setproperties
+
+echo $KV > /.secondrom/media/.devil
+
+if $BB [ "$SECONDARYBOOT" == 0 ]; then
+    echo "unmounting and remounting data"
+    $BB umount -f /.secondrom
+    $BB mount -t ext4 -o noatime,nodiratime,data=writeback,barrier=0,discard,nosuid,nodev,noauto_da_alloc,journal_async_commit,errors=panic $DATABLOCK /data
+    $BB mount -t f2fs -o noatime,nodiratime,discard,nosuid,nodev $DATABLOCK /data
+
+    $BB mount -t ext4 -o rw $CACHE /cache
+    if ! $BB grep -q /cache /proc/mounts ; then
+	echo "mounting /cache with ext4 failed, trying f2fs..."
+    $BB mount -t f2fs -o rw $CACHE /cache
+    fi
+else
+    echo "preparing /data"
+#### data
+    $BB mkdir -p $DATA2
+    $BB chmod 0771 $DATA2
+    $BB chown system:system $DATA2
+    $BB mount --bind $DATA2 /data
+    $BB mkdir -p /data/media
+    $BB mount --bind /.secondrom/media /data/media
+
+$BB mount -t ext4 -o rw $CACHE2 /cache
+    if ! $BB grep -q /cache /proc/mounts ; then
+	echo "mounting /cache with ext4 failed, trying f2fs..."
+	$BB mount -t f2fs -o rw $CACHE2 /cache
+    fi
+fi
+
+layout_version=`$BB cat /data/.layout_version`
+if $BB [ -d /data/media/0 ] && $BB [ "$layout_version" != 2 ] ; then
+	echo "preparing layout_version"
+	echo 2 > /data/.layout_version
+fi
+
+####### cleaning ###########
+$BB rm -rf /roms
+$BB rm -rf /lib/prop_modules
+$BB rm -rf /misc
+#############################
+exec /sbin/init.2

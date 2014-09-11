@@ -1,0 +1,10 @@
+on fs
+    mkdir /preload
+    exec /sbin/mount_secondary.sh
+    mount_all /fstab.smdk4x12
+    exec /sbin/modules.sh
+
+    setprop ro.crypto.fuse_sdcard true
+
+    chown radio system /efs
+    chmod 0771 /efs

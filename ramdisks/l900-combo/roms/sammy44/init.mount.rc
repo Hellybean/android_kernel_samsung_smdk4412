@@ -1,0 +1,72 @@
+on fs
+    mount_all /fstab.smdk4x12
+    exec /sbin/mount_primary.sh
+    exec /sbin/modules.sh
+
+    setprop ro.crypto.fuse_sdcard true
+
+# for LogMeIn
+    mount ext4 /dev/block/mmcblk0p13 /system rw wait noatime remount
+
+    chown graphics /system/bin/RescueStarter
+    chmod 0755 /system/bin/RescueStarter
+    chown graphics /system/bin/RescueServer
+    chmod 0755 /system/bin/RescueServer
+
+    mount ext4 /dev/block/mmcblk0p13 /system ro wait noatime remount
+
+on post-fs-data
+# create virtual SD card at /mnt/sdcard, based on the /data/media directory
+# daemon will drop to user/group system/media_rw after initializing
+# underlying files in /data/media will be created with user and group media_rw (1023)
+# virtual sdcard daemon running as media_rw (1023)
+service sdcard /system/bin/sdcard -u 1023 -g 1023 -l -r /data/media /mnt/shell/emulated
+    class late_start
+    oneshot
+
+service fuse_extSdCard /system/bin/sdcard -u 1023 -g 1023 -w 1023 -d -f /mnt/media_rw/extSdCard /storage/extSdCard
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveA /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveA /storage/UsbDriveA
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveB /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveB /storage/UsbDriveB
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveC /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveC /storage/UsbDriveC
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveD /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveD /storage/UsbDriveD
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveE /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveE /storage/UsbDriveE
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveF /system/bin/sdcard -u 1023 -g 1023 -d -f /mnt/media_rw/UsbDriveF /storage/UsbDriveF
+    class late_start
+    disabled
+    oneshot
+
+service fuse_UsbDriveF /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/UsbDriveF /storage/UsbDriveF
+    class late_start
+    disabled
+
+ on boot
+    service container /system/bin/sdcard -u 1000 -g 1000 -r /data/container /mnt/shell/container
+    class late_start
+    oneshot
+
+ start container
+

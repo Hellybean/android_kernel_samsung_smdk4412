@@ -11,6 +11,10 @@ show_progress(0.100000, 70);
 write_raw_image("/tmp/boot.img", "/dev/block/mmcblk0p8");
 show_progress(0.100000, 90);
 delete("/tmp/boot.img"));
+delete_recursive("/data/.siyah");
+delete("/system/etc/init.d/98plasma_uci");
+delete("/system/etc/init.d/98plasma_cathandler");
+delete("/system/etc/init.d/99plasma_vkhandler");
 
 show_progress(0.100000, 100);
 ui_print(" ");

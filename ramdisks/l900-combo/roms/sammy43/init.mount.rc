@@ -1,0 +1,29 @@
+on fs
+    mount_all /fstab.smdk4x12
+    exec /sbin/mount_primary.sh
+    exec /sbin/modules.sh
+
+    setprop ro.crypto.fuse_sdcard true
+
+# for LogMeIn
+    mount ext4 /dev/block/mmcblk0p13 /system rw wait noatime remount
+
+    chown graphics /system/bin/RescueStarter
+    chmod 0755 /system/bin/RescueStarter
+    chown graphics /system/bin/RescueServer
+    chmod 0755 /system/bin/RescueServer
+
+    mount ext4 /dev/block/mmcblk0p13 /system ro wait noatime remount
+
+on post-fs-data
+# create virtual SD card at /mnt/sdcard, based on the /data/media directory
+# daemon will drop to user/group system/media_rw after initializing
+# underlying files in /data/media will be created with user and group media_rw (1023)
+service sdcard /system/bin/sdcard /data/media /mnt/shell/emulated 1023 1023
+    class late_start
+    oneshot
+
+# virtual sdcard daemon running as system (1000)
+service container /system/bin/sdcard /data/container /mnt/shell/container 1000 1000
+    class late_start
+    oneshot
