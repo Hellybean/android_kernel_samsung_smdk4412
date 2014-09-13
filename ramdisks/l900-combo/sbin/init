@@ -191,8 +191,12 @@ if $BB grep -q ro.build.version.release=4.4 /system/build.prop; then
 	echo "rom seems to be cm based"
    	rom cm11
    else
+      if $BB [ -f /system/priv-app/MiuiHome.apk ]; then
+	rom miui
+      else
 	echo "rom does not seem to be based off cm"	
    	rom omni
+      fi
    fi
 elif $BB [ -f /system/framework/smartfaceservice.jar ]; then
    rom sammy43
