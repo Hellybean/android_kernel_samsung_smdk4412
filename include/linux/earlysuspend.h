@@ -18,6 +18,9 @@
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/list.h>
+#ifdef CONFIG_VENDOR_EDIT
+#include <linux/speedup_earlysuspend.h>
+#endif
 #endif
 
 /* The early_suspend structure defines suspend and resume hooks to be called
@@ -35,14 +38,16 @@ enum {
 	EARLY_SUSPEND_LEVEL_STOP_DRAWING = 100,
 	EARLY_SUSPEND_LEVEL_DISABLE_FB = 150,
 };
+#ifndef CONFIG_VENDOR_EDIT
 struct early_suspend {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct list_head link;
 	int level;
 	void (*suspend)(struct early_suspend *h);
 	void (*resume)(struct early_suspend *h);
-#endif
+#endif /* CONFIG_VENDOR_EDIT */
 };
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 void register_early_suspend(struct early_suspend *handler);

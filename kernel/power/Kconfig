@@ -102,6 +102,13 @@ choice
 		  to the screen and notifies user-space when it should resume.
 endchoice
 
+config VENDOR_EDIT
+	bool "speed up early_suspend"
+	depends on EARLYSUSPEND
+	default n
+	---help---
+	  speed up early_suspend.
+
 config HIBERNATE_CALLBACKS
 	bool
 

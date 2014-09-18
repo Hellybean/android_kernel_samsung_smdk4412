@@ -67,6 +67,10 @@ static struct early_suspend stop_drawing_early_suspend_desc = {
 	.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
 	.suspend = stop_drawing_early_suspend,
 	.resume = start_drawing_late_resume,
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-09-02 Add for speedup wakeup
+	.need_speedup = 1,
+#endif /* CONFIG_VENDOR_EDIT */
 };
 
 static ssize_t wait_for_fb_sleep_show(struct kobject *kobj,

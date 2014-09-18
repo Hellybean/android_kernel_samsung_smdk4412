@@ -10,7 +10,11 @@ obj-$(CONFIG_HIBERNATION)	+= hibernate.o snapshot.o swap.o user.o \
 				   block_io.o
 obj-$(CONFIG_WAKELOCK)		+= wakelock.o
 obj-$(CONFIG_USER_WAKELOCK)	+= userwakelock.o
-obj-$(CONFIG_EARLYSUSPEND)	+= earlysuspend.o
+ifeq ($(CONFIG_VENDOR_EDIT),y)
+obj-$(CONFIG_EARLYSUSPEND) += earlysuspend.o speedup_earlysuspend.o
+else
+obj-$(CONFIG_EARLYSUSPEND) += earlysuspend.o
+endif # VENDOR_EDIT
 obj-$(CONFIG_CONSOLE_EARLYSUSPEND)	+= consoleearlysuspend.o
 obj-$(CONFIG_FB_EARLYSUSPEND)	+= fbearlysuspend.o
 obj-$(CONFIG_SUSPEND_TIME)	+= suspend_time.o
