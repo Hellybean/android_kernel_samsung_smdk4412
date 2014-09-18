@@ -22,6 +22,11 @@
 #ifdef CONFIG_WAKELOCK_STAT
 #include <linux/proc_fs.h>
 #endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_VENDOR_EDIT
+#include <linux/speedup_earlysuspend.h>
+#endif
+#endif
 #include "power.h"
 
 enum {
@@ -864,6 +869,12 @@ static int __init wakelocks_init(void)
 	proc_create("wakelocks_exclusive", S_IRUGO, NULL, &wakelock_exclusive_stats_fops);
 #endif
 
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Add for speedup wakeup
+speedup_earlysuspend_init();
+speedup_early_suspend_handlers = &early_suspend_handlers;
+#endif /* CONFIG_VENDOR_EDIT */
+
 	return 0;
 
 err_sync_work_queue:
@@ -904,6 +915,11 @@ static void  __exit wakelocks_exit(void)
 	wake_lock_destroy(&deleted_wake_lock2);
 	wake_lock_destroy(&deleted_wake_lock1);
 	wake_lock_destroy(&deleted_wake_locks);
+
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Add for speedup wakeup
+	speedup_earlysuspend_exit();
+#endif /* CONFIG_VENDOR_EDIT */
 #endif
 }
 

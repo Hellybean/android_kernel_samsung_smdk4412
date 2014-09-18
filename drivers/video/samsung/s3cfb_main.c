@@ -648,6 +648,12 @@ void s3cfb_early_suspend(struct early_suspend *h)
 	}
 #endif
 
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Add for speedup wakeup
+	printk(KERN_EMERG "%s:%d\n", __func__, __LINE__);
+	request_speedup_late_resume();
+#endif /* CONFIG_VENDOR_EDIT */
+
 	dev_info(info->dev, "-%s\n", __func__);
 
 	return;
@@ -1281,6 +1287,10 @@ static int s3cfb_probe(struct platform_device *pdev)
 		fbdev[i]->early_suspend.suspend = s3cfb_early_suspend;
 		fbdev[i]->early_suspend.resume = s3cfb_late_resume;
 		fbdev[i]->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Add for speedup wakeup
+		fbdev[i]->early_suspend.need_speedup = 1,
+#endif /* CONFIG_VENDOR_EDIT */
 
 		register_early_suspend(&fbdev[i]->early_suspend);
 #endif

@@ -1755,8 +1755,8 @@ static int check_up(void)
 
 		min_freq = min(min_freq, freq);
 		min_rq_avg = min(min_rq_avg, rq_avg);
-		avg_rq += rq_avg;
-		avg_freq += freq;
+		avg_rq += min_rq_avg;
+		avg_freq += min_freq;
 
 		if (dbs_tuners_ins.dvfs_debug)
 			debug_hotplug_check(1, rq_avg, freq, usage);
@@ -1766,7 +1766,7 @@ static int check_up(void)
 
 	if (avg_freq >= up_freq && avg_rq > up_rq) {
 		printk(KERN_ERR "[HOTPLUG IN] %s %d>=%d && %d>%d\n",
-			__func__, min_freq, up_freq, min_rq_avg, up_rq);
+			__func__, avg_freq, up_freq, avg_rq, up_rq);
 //		hotplug_history->num_hist = 0;
 		return 1;
 	}
@@ -1824,8 +1824,8 @@ static int check_down(void)
 
 		max_freq = max(max_freq, freq);
 		max_rq_avg = max(max_rq_avg, rq_avg);
-		avg_rq += rq_avg;
-		avg_freq += freq;
+		avg_rq += max_rq_avg;
+		avg_freq += max_freq;
 
 		if (dbs_tuners_ins.dvfs_debug)
 			debug_hotplug_check(0, rq_avg, freq, usage);
@@ -1835,7 +1835,7 @@ static int check_down(void)
 
 	if (avg_freq <= down_freq && avg_rq <= down_rq) {
 		printk(KERN_ERR "[HOTPLUG OUT] %s %d<=%d && %d<%d\n",
-			__func__, max_freq, down_freq, max_rq_avg, down_rq);
+			__func__, avg_freq, down_freq, avg_rq, down_rq);
 //		hotplug_history->num_hist = 0;
 		return 1;
 	}

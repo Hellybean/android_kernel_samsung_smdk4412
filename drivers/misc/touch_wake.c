@@ -28,8 +28,12 @@
 
 extern void touchscreen_enable(void);
 extern void touchscreen_disable(void);
+extern void set_touch_wake_enabled(bool touchwake_enabled);
+extern void set_s2w_enabled(bool s2w_enabled);
+extern void set_touchoff_delay (int delay);
 
 static bool touchwake_enabled = false;
+static bool s2w_enabled = false;
 static bool touch_disabled = false;
 static bool device_suspended = false;
 static bool timed_out = true;
@@ -46,7 +50,7 @@ static struct input_dev * powerkey_device;
 static struct wake_lock touchwake_wake_lock;
 static struct timeval last_powerkeypress;
 
-#define TOUCHWAKE_VERSION "1.1"
+#define TOUCHWAKE_VERSION "1.2"
 #define TIME_LONGPRESS 500
 #define POWERPRESS_DELAY 100
 #define POWERPRESS_TIMEOUT 1000
@@ -192,6 +196,7 @@ static ssize_t touchwake_status_write(struct device * dev, struct device_attribu
 			pr_info("[TOUCHWAKE] %s: invalid input range %u\n", __FUNCTION__, data);
 		#endif
 		}
+	set_touch_wake_enabled(touchwake_enabled);
 	#ifdef DEBUG_PRINT
 	} else 	{
 		pr_info("[TOUCHWAKE] %s: invalid input\n", __FUNCTION__);
@@ -212,6 +217,7 @@ static ssize_t touchwake_delay_write(struct device * dev, struct device_attribut
 
 	if(sscanf(buf, "%u\n", &data) == 1) {
 		touchoff_delay = data;
+		set_touchoff_delay(touchoff_delay);
 		#ifdef DEBUG_PRINT
 		pr_info("[TOUCHWAKE] Delay set to %u\n", touchoff_delay); 
 		#endif
@@ -224,12 +230,42 @@ static ssize_t touchwake_delay_write(struct device * dev, struct device_attribut
 	return size;
 }
 
-int get_touchoff_delay()
-{   
-
-	return touchoff_delay;
+static ssize_t s2w_status_read(struct device * dev, struct device_attribute * attr, char * buf)
+{
+	return sprintf(buf, "%u\n", (s2w_enabled ? 1 : 0));
 }
-EXPORT_SYMBOL(get_touchoff_delay);
+
+static ssize_t s2w_status_write(struct device * dev, struct device_attribute * attr, const char * buf, size_t size)
+{
+	unsigned int data;
+
+	if(sscanf(buf, "%u\n", &data) == 1) {
+		pr_devel("%s: %u \n", __FUNCTION__, data);
+
+		if (data == 1) {
+			#ifdef DEBUG_PRINT
+			pr_info("[TOUCHWAKE] %s: S2W function enabled\n", __FUNCTION__);
+			#endif
+			s2w_enabled = true;
+		} else if (data == 0) {
+			#ifdef DEBUG_PRINT
+			pr_info("[TOUCHWAKE] %s: S2W function disabled\n", __FUNCTION__);
+			#endif
+			s2w_enabled = false;
+		#ifdef DEBUG_PRINT
+		} else {
+			pr_info("[TOUCHWAKE] %s: invalid input range %u\n", __FUNCTION__, data);
+		#endif
+		}
+	set_s2w_enabled(s2w_enabled);
+	#ifdef DEBUG_PRINT
+	} else 	{
+		pr_info("[TOUCHWAKE] %s: invalid input\n", __FUNCTION__);
+	#endif
+	}
+
+	return size;
+}
 
 static ssize_t touchwake_version(struct device * dev, struct device_attribute * attr, char * buf)
 {
@@ -244,6 +280,7 @@ static ssize_t touchwake_debug(struct device * dev, struct device_attribute * at
 #endif
 
 static DEVICE_ATTR(enabled, S_IRUGO | S_IWUGO, touchwake_status_read, touchwake_status_write);
+static DEVICE_ATTR(s2w, S_IRUGO | S_IWUGO, s2w_status_read, s2w_status_write);
 static DEVICE_ATTR(delay, S_IRUGO | S_IWUGO, touchwake_delay_read, touchwake_delay_write);
 static DEVICE_ATTR(version, S_IRUGO , touchwake_version, NULL);
 #ifdef DEBUG_PRINT
@@ -253,6 +290,7 @@ static DEVICE_ATTR(debug, S_IRUGO , touchwake_debug, NULL);
 static struct attribute *touchwake_notification_attributes[] =
 {
 	&dev_attr_enabled.attr,
+	&dev_attr_s2w.attr,
 	&dev_attr_delay.attr,
 	&dev_attr_version.attr,
 #ifdef DEBUG_PRINT

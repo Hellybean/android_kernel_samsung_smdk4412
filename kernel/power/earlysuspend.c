@@ -64,6 +64,14 @@ void register_early_suspend(struct early_suspend *handler)
 {
 	struct list_head *pos;
 
+#ifdef CONFIG_VENDOR_EDIT
+ //Lycan.Wang@Prd.BasicDrv, 2013-09-02 Add for speedup wakeup
+ //TODO some struct in .ko has no init
+ 	if (handler->need_speedup && handler->need_speedup !=1) {
+ 	handler->need_speedup = 0;
+	}
+#endif /* CONFIG_VENDOR_EDIT */
+
 	mutex_lock(&early_suspend_lock);
 	list_for_each(pos, &early_suspend_handlers) {
 		struct early_suspend *e;
@@ -118,6 +126,12 @@ static void early_suspend(struct work_struct *work)
 		if (pos->suspend != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
+#ifdef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Add for speedup wakeup
+			if (pos->need_speedup) {
+            			suspend_speedup(pos);
+			}
+#endif /* CONFIG_VENDOR_EDIT */
 			pos->suspend(pos);
 		}
 	}
@@ -169,7 +183,20 @@ static void late_resume(struct work_struct *work)
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("late_resume: calling %pf\n", pos->resume);
 
+#ifndef CONFIG_VENDOR_EDIT
+//Lycan.Wang@Prd.BasicDrv, 2013-08-31 Modify for speedup wakeup
 			pos->resume(pos);
+#else /* !CONFIG_VENDOR_EDIT */
+			long long time;
+			time = ktime_to_ms(ktime_get());
+			if (!pos->need_speedup)
+				pos->resume(pos);
+			else {
+				resume_speedup(pos);
+			}
+			printk(KERN_EMERG "LR handlers [%pf], level: %d cost %lldms\n", 
+				pos->resume, pos->level, ktime_to_ms(ktime_get()) - time);
+#endif /* CONFIG_VENDOR_EDIT */
 		}
 	}
 	if (debug_mask & DEBUG_SUSPEND)
