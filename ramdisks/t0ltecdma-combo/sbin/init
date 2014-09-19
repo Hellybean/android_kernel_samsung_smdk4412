@@ -5,11 +5,10 @@ TOOLBOX=/system/bin/toolbox
 
 SYSTEM=/dev/block/mmcblk0p13
 SYSTEM2=/.secondrom/media/.secondrom/system.img
-DATABLOCK=/dev/block/mmcblk0p17
+DATABLOCK=/dev/block/mmcblk0p16
 DATA2=/.secondrom/media/.secondrom/data
 CACHE=/dev/block/mmcblk0p12
 CACHE2=/dev/block/mmcblk0p14
-CARRIER=/dev/block/mmcblk0p16
 
 cd /
 
@@ -50,8 +49,7 @@ $BB mknod /dev/block/mmcblk0 b 179 0
 $BB mknod $CACHE b 179 12 	# cache1
 $BB mknod $CACHE2 b 179 14 	# cache2
 $BB mknod $SYSTEM b 179 13 	# system
-$BB mknod $CARRIER b 259 0	# carrier for sprint
-$BB mknod $DATABLOCK b 259 1	# data and .secondrom for sprint
+$BB mknod $DATABLOCK b 259 0	# data and .secondrom for verizon
 $BB mknod /dev/block/loop0 b 7 0
 
 $BB echo "mounting devices..."
@@ -141,17 +139,13 @@ copy_libs
 	fi
 	echo previous version: $INSTALLED_VER
 
-	if [ "$1" == "sammy43" ] ; then
-	    if $BB [ ! -f /.secondrom/.selinux_enable ]; then 
-		##selinux disabled by default## && $BB grep -q f2fs /proc/mounts
+	if [ "$1" == "sammy43" ] || [ "$1" == "sammy44" ] ; then
+	    #if $BB grep -q f2fs /proc/mounts ; then #selinux disabled by default
    	    	echo 2 > /proc/sys/kernel/rom_feature_set
 		echo "disabled selinux"
-	    else
-	    	if $BB grep -q f2fs /proc/mounts ; then
-		   $BB mv -f /f2fs_selinux/* /
-	    	fi
-   	    	echo 4 > /proc/sys/kernel/rom_feature_set
-	    fi
+	    #else
+   	    #	echo 4 > /proc/sys/kernel/rom_feature_set
+	    #fi
 	    $BB mv -f /misc/sbin2/* /sbin/
 	    $BB mv -f /misc/system/bin/* /system/bin/
 	    $BB chmod a+x /system/bin/sysinit
@@ -187,13 +181,20 @@ copy_libs
 }
 
 if $BB grep -q ro.build.version.release=4.4 /system/build.prop; then
-   if $BB grep -q cyanogenmod /system/build.prop ||
+   if $BB [ -f /system/framework/smartfaceservice.jar ]; then
+	rom sammy44
+
+   elif $BB grep -q cyanogenmod /system/build.prop ||
       $BB grep -q ro.cm.version /system/build.prop; then
 	echo "rom seems to be cm based"
    	rom cm11
    else
+      if $BB [ -f /system/priv-app/MiuiHome.apk ]; then
+	rom miui
+      else
 	echo "rom does not seem to be based off cm"	
    	rom omni
+      fi
    fi
 elif $BB [ -f /system/framework/smartfaceservice.jar ]; then
    rom sammy43
@@ -212,7 +213,7 @@ $BB echo "# usb connection workaround, needed because of broken default.prop exe
 $BB echo "/system/bin/setprop persist.sys.usb.config mtp,adb" >> /system/etc/init.d/15devil
 $BB chmod a+x /system/etc/init.d/15devil
 
-#setproperties
+setproperties
 
 echo $KV > /.secondrom/media/.devil
 
@@ -254,6 +255,5 @@ fi
 $BB rm -rf /roms
 $BB rm -rf /lib/prop_modules
 $BB rm -rf /misc
-$BB rm -rf /f2fs_selinux
 #############################
 exec /sbin/init.2
