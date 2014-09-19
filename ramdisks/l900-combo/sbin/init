@@ -5,11 +5,10 @@ TOOLBOX=/system/bin/toolbox
 
 SYSTEM=/dev/block/mmcblk0p13
 SYSTEM2=/.secondrom/media/.secondrom/system.img
-DATABLOCK=/dev/block/mmcblk0p17
+DATABLOCK=/dev/block/mmcblk0p16
 DATA2=/.secondrom/media/.secondrom/data
 CACHE=/dev/block/mmcblk0p12
 CACHE2=/dev/block/mmcblk0p14
-CARRIER=/dev/block/mmcblk0p16
 
 cd /
 
@@ -38,10 +37,6 @@ $BB mkdir /cache
 $BB chmod 0770 /cache
 $BB chown system:cache /cache
 
-$BB mkdir /carrier
-$BB chmod 0771 /carrier
-$BB chown system:radio /carrier
-
 $BB mkdir /dev/input
 
 $BB echo "generating device nodes..."
@@ -50,8 +45,7 @@ $BB mknod /dev/block/mmcblk0 b 179 0
 $BB mknod $CACHE b 179 12 	# cache1
 $BB mknod $CACHE2 b 179 14 	# cache2
 $BB mknod $SYSTEM b 179 13 	# system
-$BB mknod $CARRIER b 259 0	# carrier for sprint
-$BB mknod $DATABLOCK b 259 1	# data and .secondrom for sprint
+$BB mknod $DATABLOCK b 259 0	# data and .secondrom
 $BB mknod /dev/block/loop0 b 7 0
 
 $BB echo "mounting devices..."
@@ -59,9 +53,6 @@ $BB mount -t proc proc /proc
 $BB mount -t sysfs sysfs /sys
 $BB mount -o rw,remount rootfs
 $BB mount -o rw,remount /
-
-$BB echo "trying to mount carrier as ext4:"
-$BB mount -t ext4 -o noatime,nodiratime,data=writeback,barrier=0,discard,nosuid,nodev,noauto_da_alloc,journal_async_commit,errors=panic $CARRIER /carrier
 
 $BB echo "trying to mount .secondrom as ext4:"
 $BB mount -t ext4 -o noatime,nodiratime,data=writeback,barrier=0,discard,nosuid,nodev,noauto_da_alloc,journal_async_commit,errors=panic $DATABLOCK /.secondrom
@@ -81,8 +72,6 @@ else
    $BB mount -t ext4 -o rw,noatime,nodiratime,data=writeback,barrier=0,discard $SYSTEM /system
    $BB mount -t f2fs -o rw,noatime,nodiratime,discard $SYSTEM /system
 fi
-
-$BB mkdir -p /system/etc/init.d
 
 #move .secondrom folder back to the original location if android moved it to a subfolder
 if $BB [ -d /.secondrom/media/0/.secondrom ];then
@@ -191,12 +180,8 @@ if $BB grep -q ro.build.version.release=4.4 /system/build.prop; then
 	echo "rom seems to be cm based"
    	rom cm11
    else
-      if $BB [ -f /system/priv-app/MiuiHome.apk ]; then
-	rom miui
-      else
 	echo "rom does not seem to be based off cm"	
    	rom omni
-      fi
    fi
 elif $BB [ -f /system/framework/smartfaceservice.jar ]; then
    rom sammy43
